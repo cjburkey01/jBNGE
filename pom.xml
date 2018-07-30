@@ -13,6 +13,7 @@
         <joml.version>1.9.10</joml.version>
         <steamworks4j.version>1.7.0</steamworks4j.version>
         <dyn4j.version>3.3.0</dyn4j.version>
+        <log4j.version>2.11.0</log4j.version>
     </properties>
     <profiles>
         <profile>
@@ -388,6 +389,16 @@
             <groupId>org.dyn4j</groupId>
             <artifactId>dyn4j</artifactId>
             <version>${dyn4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
         </dependency>
     </dependencies>
     <url>https://github.com/cjburkey01/jBNGE</url>
