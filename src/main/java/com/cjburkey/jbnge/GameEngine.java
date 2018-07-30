@@ -1,25 +1,35 @@
 package com.cjburkey.jbnge;
 
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
 public final class GameEngine {
     
     // Constants
-    private static final double nanoSecondsPerSecond = 1_000_000_000.0d;
+    private static final double nanoSecondsPerSecond = 1000000000.0d;
     public static final GameEngine instance = new GameEngine();
     
     // State management
     private boolean hasInitialized = false;
-    private boolean hasPostLoopInitialized = false;
-    private boolean running = false;
+    private boolean hasUpdateInitialized = false;
+    private boolean hasRenderInitialized = false;
+    private GameState gameState;
     
     // Game loops
     private Thread renderLoop;
     private Thread updateLoop;
+    
+    // Render queues
+    private final Queue<RenderCall> localRenderCalls = new ConcurrentLinkedQueue<>();       // From the render thread
+    private final Queue<RenderCall> externalRenderCalls = new ConcurrentLinkedQueue<>();    // From the update/other thread(s)
     
     // Timing handling
     private long lastUpdateTime = System.nanoTime();
     private double deltaUpdateTime = 0.0d;
     private long lastRenderTime = System.nanoTime();
     private double deltaRenderTime = 0.0d;
+    private double publicDeltaUpdate = 0.0d;
+    private double publicDeltaRender = 0.0d;
     
     // Game time handling
     private double gameTime = 0.0d;
@@ -27,7 +37,7 @@ public final class GameEngine {
     private long gameFrames = 0;
     private double timeSinceTitleUpdate = 0.0d;
     
-    // Game features    
+    // Game features
     private GameWindow window;
     
     private GameEngine() {
@@ -39,23 +49,27 @@ public final class GameEngine {
     
     // Initialize and begin the game
     public void initialize() {
-        if (hasInitialized || running) {
+        if (hasInitialized) {
             return;
         }
         hasInitialized = true;
-        running = true;
+        updateGameState(GameState.PRE_INIT);
         
+        Thread.currentThread().setName("Raw");
         Log.info("Initializing game engine");
         
         openWindow();
+        RawGameEventCore.onEarlyInitialization();
+        updateGameState(GameState.INIT);
         startGameLoops();
     }
     
     // Create and display the game window as well as initialize OpenGL
     private void openWindow() {
         window = new GameWindow();
+        window.setVsync(true);
         window.show();
-        window.setTitle("jBNGE 0.0.1");
+        window.setTitle("jBNGE...");
         window.setSizeRatioToMonitor(0.5f);
         window.centerOnScreen();
         
@@ -68,18 +82,28 @@ public final class GameEngine {
     }
     
     private void startUpdateLoop() {
-        createThread(() -> {
-            while (running) {
+        createThread("Update", () -> {
+            while (gameState.running) {
                 lastUpdateTime = System.nanoTime();
                 
+                // Check if update initialization needs to be done
+                if (!hasUpdateInitialized) {
+                    hasUpdateInitialized = true;
+                    RawGameEventCore.onUpdateInitialization();
+                }
+                
+                if (hasUpdateInitialized && hasRenderInitialized && gameState.running && !gameState.equals(GameState.RUNNING)) {
+                    updateGameState(GameState.RUNNING);
+                }
+                
                 // Update the game and objects
-                onEarlyUpdate();
-                onUpdate();
-                onLateUpdate();
+                RawGameEventCore.onEarlyUpdate();
+                RawGameEventCore.onUpdate();
+                RawGameEventCore.onLateUpdate();
                 
                 // Increment update counter and game time
                 gameUpdates ++;
-                gameTime += deltaUpdateTime;
+                gameTime += getDeltaTime();
                 
                 // Keep track of time usage and control game throttling
                 handleUpdateTiming();
@@ -88,16 +112,14 @@ public final class GameEngine {
     }
     
     private void startRenderLoop() {
-        // Pre-initialize when necessary
-        onEarlyInitialization();
-        
-        while (running) {
+        Thread.currentThread().setName("Render");
+        while (gameState.running) {
             lastRenderTime = System.nanoTime();
             
-            // Check if normal initialization needs to be done
-            if (!hasPostLoopInitialized) {
-                hasPostLoopInitialized = true;
-                onInitialization();
+            // Check if update initialization needs to be done
+            if (!hasRenderInitialized) {
+                hasRenderInitialized = true;
+                RawGameEventCore.onRenderInitialization();
             }
             
             // Check for new input
@@ -105,17 +127,24 @@ public final class GameEngine {
             
             // Check if the player is trying to close the game
             if (window.getIsCloseRequested()) {
-                running = false;
+                updateGameState(GameState.STOPPING);
                 break;
+            }
+            
+            timeSinceTitleUpdate += publicDeltaRender;
+            if (timeSinceTitleUpdate >= 1.0d / 60.0d) {
+                timeSinceTitleUpdate = 0.0d;
+                window.setTitle("jBNGE 0.0.1 | FPS: " + Format.format2(1.0d / publicDeltaRender) + " | UPS: " + Format.format2(1.0d / getDeltaTime()));
             }
             
             // Prepare the window for rendering
             window.preRender();
             
             // Render the objects
-            onEarlyRender();
-            onRender();
-            onLateRender();
+            RawGameEventCore.onEarlyRender();
+            callQueuedRenders();
+            RawGameEventCore.onRender();
+            RawGameEventCore.onLateRender();
             
             // Render the frame to the window
             window.swapBuffers();
@@ -127,7 +156,11 @@ public final class GameEngine {
             // of timings for later usage and smoothing
             handleRenderTiming();
         }
-        onExit();
+        Thread.currentThread().setName("Raw");
+        RawGameEventCore.onExit();
+        callQueuedRenders();    // Call queued calls again so that anything cleaning up with queue calls is cleaned up
+        window.destroy();
+        updateGameState(GameState.STOPPED);
         exit(false, false, true);
     }
     
@@ -136,7 +169,8 @@ public final class GameEngine {
         // Update timing between updates so movement can be smooth at different update rates
         updateUpdateTimes();
         
-        while (deltaUpdateTime < 1.0d / 1000.0d) {
+        // Prevent more than 100 updates per second
+        while (deltaUpdateTime < 1.0d / 100.0d) {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
@@ -144,19 +178,21 @@ public final class GameEngine {
             }
             updateUpdateTimes();
         }
+        
+        publicDeltaUpdate = deltaUpdateTime;
     }
     
     private void updateUpdateTimes() {
         deltaUpdateTime = (System.nanoTime() - lastUpdateTime) / nanoSecondsPerSecond;
     }
     
-    // Makes sure the game doesn't run too fast
+    // Make sure the game doesn't run too fast
     private void handleRenderTiming() {
         // Render timing between renders so movement can be smooth at different FPS values
         updateRenderTimes();
         
-        // Throttle rendering to about 1000 frames per second (because 500 equals 1000? Idk what's going on, but this seems to somewhat work)
-        while (deltaRenderTime < 1.0d / 1000.0d) {
+        // Make sure that the game doesn't run at more than 500 fps
+        while (deltaRenderTime < 1.0d / 500.0d) {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
@@ -164,6 +200,8 @@ public final class GameEngine {
             }
             updateRenderTimes();
         }
+        
+        publicDeltaRender = deltaRenderTime;
     }
     
     private void updateRenderTimes() {
@@ -178,7 +216,7 @@ public final class GameEngine {
     // Exits the game
     protected void exit(boolean peacefully, boolean showMessage, boolean cleanExit) {
         if (peacefully) {
-            running = false;
+            updateGameState(GameState.STOPPING);
             return;
         }
         if (showMessage) {
@@ -187,59 +225,9 @@ public final class GameEngine {
         Runtime.getRuntime().exit((cleanExit) ? 0 : 1);
     }
     
-    // Called before the game loop is entered
-    private void onEarlyInitialization() {
-        Log.info("Pre-initialized");
-    }
-    
-    // Called just after the game loop has been entered
-    private void onInitialization() {
-        Log.info("Started game loop");
-    }
-    
-    // Called before the main update loop
-    private void onEarlyUpdate() {
-        
-    }
-    
-    // Called every frame before the game renders objects
-    private void onUpdate() {
-        
-    }
-    
-    // Called after the main update but before rendering
-    private void onLateUpdate() {
-        
-    }
-    
-    // Called just after updating the game
-    private void onEarlyRender() {
-        
-    }
-    
     // Called while the window is being resized so the window doesn't become black (essentially redraws even if the window is not "final")
     protected void onWindowRefreshRequired() {
-        onRender();
-    }
-    
-    // Called every frame after objects have been updated
-    // This is where OpenGL rendering is called
-    private void onRender() {
-        timeSinceTitleUpdate += deltaRenderTime;
-        if (timeSinceTitleUpdate >= 1.0d / 30.0d) {
-            timeSinceTitleUpdate = 0.0d;
-            window.setTitle("jBNGE 0.0.1 | FPS: " + Format.format2(1.0d / deltaRenderTime) + " | UPS: " + Format.format2(1.0d / deltaUpdateTime));
-        }
-    }
-    
-    // Called after the game renders but before the next frame
-    private void onLateRender() {
-        
-    }
-    
-    // Called before the game completely exits; used to clean up objects in memory
-    private void onExit() {
-        window.destroy();
+        RawGameEventCore.onRender();
     }
     
     // Check whether the current thread is the thread containing the GLFW context and OpenGL rendering engine
@@ -253,7 +241,7 @@ public final class GameEngine {
     }
     
     public float getDeltaTime() {
-        return (float) deltaUpdateTime;
+        return (float) publicDeltaUpdate;
     }
     
     public float getGameTime() {
@@ -268,9 +256,46 @@ public final class GameEngine {
         return gameFrames;
     }
     
+    public GameWindow getWindow() {
+        return window;
+    }
+    
+    public void queueRender(RenderCall call) {
+        if (getInRenderLoop()) {
+            localRenderCalls.offer(call);
+            return;
+        }
+        externalRenderCalls.offer(call);
+    }
+    
+    private void callQueuedRenders() {
+        cleanQueue(localRenderCalls);
+        cleanQueue(externalRenderCalls);
+    }
+    
+    private void cleanQueue(Queue<RenderCall> calls) {
+        float delta = (float) publicDeltaRender;
+        while (!calls.isEmpty()) {
+            RenderCall call = calls.poll();
+            if (call != null) {
+                call.call(delta);
+            }
+        }
+    }
+    
+    public GameState getGameState() {
+        return gameState;
+    }
+    
+    private void updateGameState(GameState gameState) {
+        this.gameState = gameState;
+        Log.info("Game state entered: {}", gameState.name());
+    }
+    
     // Creates a new thread
-    public static Thread createThread(Runnable runnable, boolean execute) {
+    public static Thread createThread(String name, Runnable runnable, boolean execute) {
         Thread t = new Thread(runnable);
+        t.setName(name);
         if (execute) {
             t.start();
         }

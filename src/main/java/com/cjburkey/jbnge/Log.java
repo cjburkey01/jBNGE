@@ -46,7 +46,7 @@ public final class Log {
     }
     
     private static void printStackTrace(Throwable t) {
-        error("  Exception: {}", t.getClass().getSimpleName());
+        error("  Exception: {}", t.getClass().getName());
         error("  Message: {}", t.getMessage());
         for (StackTraceElement e : t.getStackTrace()) {
             if (e != null) {
