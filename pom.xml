@@ -67,22 +67,7 @@
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-bgfx</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-egl</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-glfw</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-jawt</artifactId>
             <version>${lwjgl.version}</version>
         </dependency>
         <dependency>
@@ -92,32 +77,7 @@
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-lmdb</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-lz4</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-nanovg</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-nfd</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-nuklear</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-odbc</artifactId>
             <version>${lwjgl.version}</version>
         </dependency>
         <dependency>
@@ -127,37 +87,7 @@
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-opencl</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-opengl</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-opengles</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-openvr</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-ovr</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-par</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-remotery</artifactId>
             <version>${lwjgl.version}</version>
         </dependency>
         <dependency>
@@ -167,22 +97,7 @@
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-sse</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-stb</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-tinyexr</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-tinyfd</artifactId>
             <version>${lwjgl.version}</version>
         </dependency>
         <dependency>
@@ -207,16 +122,6 @@
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-yoga</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-zstd</artifactId>
-            <version>${lwjgl.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl</artifactId>
             <version>${lwjgl.version}</version>
             <classifier>${lwjgl.natives}</classifier>
@@ -229,12 +134,6 @@
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-bgfx</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-glfw</artifactId>
             <version>${lwjgl.version}</version>
             <classifier>${lwjgl.natives}</classifier>
@@ -242,30 +141,6 @@
         <dependency>
             <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-jemalloc</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-lmdb</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-lz4</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-nanovg</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-nfd</artifactId>
             <version>${lwjgl.version}</version>
             <classifier>${lwjgl.natives}</classifier>
         </dependency>
@@ -289,49 +164,13 @@
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-opengles</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-par</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-remotery</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-rpmalloc</artifactId>
             <version>${lwjgl.version}</version>
             <classifier>${lwjgl.natives}</classifier>
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-sse</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-stb</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-tinyexr</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-tinyfd</artifactId>
             <version>${lwjgl.version}</version>
             <classifier>${lwjgl.natives}</classifier>
         </dependency>
@@ -349,19 +188,13 @@
         </dependency>
         <dependency>
             <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-vulkan</artifactId>
+            <version>${lwjgl.version}</version>
+            <classifier>${lwjgl.natives}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
             <artifactId>lwjgl-xxhash</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-yoga</artifactId>
-            <version>${lwjgl.version}</version>
-            <classifier>${lwjgl.natives}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.lwjgl</groupId>
-            <artifactId>lwjgl-zstd</artifactId>
             <version>${lwjgl.version}</version>
             <classifier>${lwjgl.natives}</classifier>
         </dependency>
