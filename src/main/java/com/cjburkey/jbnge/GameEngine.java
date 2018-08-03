@@ -2,6 +2,11 @@ package com.cjburkey.jbnge;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import com.cjburkey.jbnge.entity.Scene;
+import com.cjburkey.jbnge.graphics.GLFWWindow;
+import com.cjburkey.jbnge.graphics.GLGraphics;
+import com.cjburkey.jbnge.graphics.IGraphics;
+import com.cjburkey.jbnge.graphics.IWindow;
 
 public final class GameEngine {
     
@@ -38,7 +43,8 @@ public final class GameEngine {
     private double timeSinceTitleUpdate = 0.0d;
     
     // Game features
-    private GameWindow window;
+    private IWindow window;
+    private IGraphics graphics;
     
     private GameEngine() {
         Thread.setDefaultUncaughtExceptionHandler((thread, e) -> Log.exception(e));
@@ -57,7 +63,8 @@ public final class GameEngine {
         
         Thread.currentThread().setName("Raw");
         Log.info("Initializing game engine");
-        
+
+        new Scene();
         openWindow();
         RawGameEventCore.onEarlyInitialization();
         updateGameState(GameState.INIT);
@@ -66,7 +73,10 @@ public final class GameEngine {
     
     // Create and display the game window as well as initialize OpenGL
     private void openWindow() {
-        window = new GameWindow();
+        window = createWindow();
+        graphics = createGraphics();
+        
+        window.init(() -> onWindowRefreshRequired());
         window.setVsync(true);
         window.show();
         window.setTitle("jBNGE...");
@@ -97,9 +107,9 @@ public final class GameEngine {
                 }
                 
                 // Update the game and objects
-                RawGameEventCore.onEarlyUpdate();
-                RawGameEventCore.onUpdate();
-                RawGameEventCore.onLateUpdate();
+                RawGameEventCore.onEarlyUpdate((float) publicDeltaUpdate);
+                RawGameEventCore.onUpdate((float) publicDeltaUpdate);
+                RawGameEventCore.onLateUpdate((float) publicDeltaUpdate);
                 
                 // Increment update counter and game time
                 gameUpdates ++;
@@ -134,17 +144,17 @@ public final class GameEngine {
             timeSinceTitleUpdate += publicDeltaRender;
             if (timeSinceTitleUpdate >= 1.0d / 60.0d) {
                 timeSinceTitleUpdate = 0.0d;
-                window.setTitle("jBNGE 0.0.1 | FPS: " + Format.format2(1.0d / publicDeltaRender) + " | UPS: " + Format.format2(1.0d / getDeltaTime()));
+                window.setTitle("jBNGE 0.0.1 | FPS: " + Format.format2(1.0d / publicDeltaRender) + " | UPS: " + Format.format2(1.0d / publicDeltaUpdate));
             }
             
             // Prepare the window for rendering
             window.preRender();
             
             // Render the objects
-            RawGameEventCore.onEarlyRender();
+            RawGameEventCore.onEarlyRender((float) publicDeltaRender);
             callQueuedRenders();
-            RawGameEventCore.onRender();
-            RawGameEventCore.onLateRender();
+            RawGameEventCore.onRender((float) publicDeltaRender);
+            RawGameEventCore.onLateRender((float) publicDeltaRender);
             
             // Render the frame to the window
             window.swapBuffers();
@@ -179,7 +189,7 @@ public final class GameEngine {
             updateUpdateTimes();
         }
         
-        publicDeltaUpdate = deltaUpdateTime;
+        publicDeltaUpdate = (float) deltaUpdateTime;
     }
     
     private void updateUpdateTimes() {
@@ -191,8 +201,8 @@ public final class GameEngine {
         // Render timing between renders so movement can be smooth at different FPS values
         updateRenderTimes();
         
-        // Make sure that the game doesn't run at more than 500 fps
-        while (deltaRenderTime < 1.0d / 500.0d) {
+        // Make sure that the game doesn't run at more than 120 fps
+        while (deltaRenderTime < 1.0d / 120.0d) {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
@@ -201,7 +211,7 @@ public final class GameEngine {
             updateRenderTimes();
         }
         
-        publicDeltaRender = deltaRenderTime;
+        publicDeltaRender = (float) deltaRenderTime;
     }
     
     private void updateRenderTimes() {
@@ -227,7 +237,7 @@ public final class GameEngine {
     
     // Called while the window is being resized so the window doesn't become black (essentially redraws even if the window is not "final")
     protected void onWindowRefreshRequired() {
-        RawGameEventCore.onRender();
+        RawGameEventCore.onRender(0.0f);
     }
     
     // Check whether the current thread is the thread containing the GLFW context and OpenGL rendering engine
@@ -256,7 +266,7 @@ public final class GameEngine {
         return gameFrames;
     }
     
-    public GameWindow getWindow() {
+    public IWindow getWindow() {
         return window;
     }
     
@@ -300,6 +310,18 @@ public final class GameEngine {
             t.start();
         }
         return t;
+    }
+    
+    public static IGraphics getGraphics() {
+        return instance.graphics;
+    }
+    
+    private static final IWindow createWindow() {
+        return new GLFWWindow();
+    }
+    
+    private static final IGraphics createGraphics() {
+        return new GLGraphics();
     }
     
 }

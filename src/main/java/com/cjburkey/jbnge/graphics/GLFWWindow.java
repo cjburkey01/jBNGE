@@ -1,22 +1,22 @@
-package com.cjburkey.jbnge;
+package com.cjburkey.jbnge.graphics;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.system.MemoryUtil.*;
 import org.joml.Vector2i;
 import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
+import com.cjburkey.jbnge.GameEngine;
 
-public final class GameWindow {
+public final class GLFWWindow implements IWindow {
     
     private final Vector2i windowSize = new Vector2i(300, 300);
-    private String windowTitle = "";
+    private StringBuffer windowTitle = new StringBuffer();
     private long window;
     private Vector3f clearColor = new Vector3f(0.0f, 0.0f, 0.0f);
     private int vsync = 0;
     
-    public GameWindow() {
+    public void init(Runnable onWindowRefreshRequired) {
         // Initialize GLFW (window library)
         if (!glfwInit()) {
             throw new RuntimeException();
@@ -30,7 +30,7 @@ public final class GameWindow {
         
         // Register event listeners
         glfwSetFramebufferSizeCallback(window, (win, w, h) -> onResize(w, h));
-        glfwSetWindowRefreshCallback(window, (win) -> GameEngine.instance.onWindowRefreshRequired());
+        glfwSetWindowRefreshCallback(window, (win) -> onWindowRefreshRequired.run());
         
         // Make this the OpenGL-active window
         glfwMakeContextCurrent(window);
@@ -48,12 +48,12 @@ public final class GameWindow {
     // Called when the window size is changed
     private void onResize(int width, int height) {
         windowSize.set(width, height);
-        glViewport(0, 0, width, height);
+        GameEngine.getGraphics().updateViewport(0, 0, width, height);
     }
     
     // Clears the current window to the specified background color
     public void preRender() {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GameEngine.getGraphics().clear();
     }
     
     // Draws the next frame
@@ -88,13 +88,14 @@ public final class GameWindow {
     
     // Sets the window title
     public void setTitle(String title) {
-        windowTitle = title;
+        windowTitle.setLength(0);
+        windowTitle.append(title);
         glfwSetWindowTitle(window, title);
     }
     
     // Retrieves the window title
     public String getTitle() {
-        return windowTitle;
+        return windowTitle.toString();
     }
     
     // Makes the window visible
@@ -117,7 +118,7 @@ public final class GameWindow {
     // Sets the background (clear) color
     public void setBackgroundColor(Vector3f color) {
         clearColor.set(color);
-        glClearColor(color.x, color.y, color.z, 1.0f);
+        GameEngine.getGraphics().setClearColor(color);
     }
     
     // Retrieves the background (clear) color
