@@ -4,6 +4,8 @@ import org.joml.Vector3f;
 
 public interface IGraphics {
     
+    String getVersion();
+    
     void createCapabilities();
     
     void updateViewport(int x, int y, int w, int h);

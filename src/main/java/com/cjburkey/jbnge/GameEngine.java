@@ -7,6 +7,7 @@ import com.cjburkey.jbnge.graphics.GLFWWindow;
 import com.cjburkey.jbnge.graphics.GLGraphics;
 import com.cjburkey.jbnge.graphics.IGraphics;
 import com.cjburkey.jbnge.graphics.IWindow;
+import com.cjburkey.jbnge.input.Input;
 
 public final class GameEngine {
     
@@ -24,9 +25,11 @@ public final class GameEngine {
     private Thread renderLoop;
     private Thread updateLoop;
     
-    // Render queues
-    private final Queue<RenderCall> localRenderCalls = new ConcurrentLinkedQueue<>();       // From the render thread
-    private final Queue<RenderCall> externalRenderCalls = new ConcurrentLinkedQueue<>();    // From the update/other thread(s)
+    // Call queues
+    private final Queue<InvocCall> localRenderCalls = new ConcurrentLinkedQueue<>();       // From the render thread
+    private final Queue<InvocCall> externalRenderCalls = new ConcurrentLinkedQueue<>();    // From the update/other thread(s)
+    private final Queue<InvocCall> localUpdateCalls = new ConcurrentLinkedQueue<>();       // From the render thread
+    private final Queue<InvocCall> externalUpdateCalls = new ConcurrentLinkedQueue<>();    // From the update/other thread(s)
     
     // Timing handling
     private long lastUpdateTime = System.nanoTime();
@@ -54,7 +57,7 @@ public final class GameEngine {
     }
     
     // Initialize and begin the game
-    public void initialize() {
+    protected void initialize() {
         if (hasInitialized) {
             return;
         }
@@ -92,7 +95,7 @@ public final class GameEngine {
     }
     
     private void startUpdateLoop() {
-        createThread("Update", () -> {
+        updateLoop = createThread("Update", () -> {
             while (gameState.running) {
                 lastUpdateTime = System.nanoTime();
                 
@@ -107,6 +110,8 @@ public final class GameEngine {
                 }
                 
                 // Update the game and objects
+                Input.onUpdate();
+                callQueued(localUpdateCalls, externalUpdateCalls, (float) publicDeltaUpdate);
                 RawGameEventCore.onEarlyUpdate((float) publicDeltaUpdate);
                 RawGameEventCore.onUpdate((float) publicDeltaUpdate);
                 RawGameEventCore.onLateUpdate((float) publicDeltaUpdate);
@@ -152,7 +157,7 @@ public final class GameEngine {
             
             // Render the objects
             RawGameEventCore.onEarlyRender((float) publicDeltaRender);
-            callQueuedRenders();
+            callQueued(localRenderCalls, externalRenderCalls, (float) publicDeltaRender);
             RawGameEventCore.onRender((float) publicDeltaRender);
             RawGameEventCore.onLateRender((float) publicDeltaRender);
             
@@ -168,7 +173,7 @@ public final class GameEngine {
         }
         Thread.currentThread().setName("Raw");
         RawGameEventCore.onExit();
-        callQueuedRenders();    // Call queued calls again so that anything cleaning up with queue calls is cleaned up
+        callQueued(localRenderCalls, externalRenderCalls, (float) publicDeltaRender);    // Call queued calls again so that anything cleaning up with queue calls is cleaned up
         window.destroy();
         updateGameState(GameState.STOPPED);
         exit(false, false, true);
@@ -270,23 +275,42 @@ public final class GameEngine {
         return window;
     }
     
-    public void queueRender(RenderCall call) {
+    public void queueRender(boolean callIfPossible, InvocCall call) {
         if (getInRenderLoop()) {
-            localRenderCalls.offer(call);
-            return;
+            if (callIfPossible) {
+                call.call((float) publicDeltaRender);
+            } else {
+                queue(call, localRenderCalls);
+                return;
+            }
         }
-        externalRenderCalls.offer(call);
+        queue(call, externalRenderCalls);
     }
     
-    private void callQueuedRenders() {
-        cleanQueue(localRenderCalls);
-        cleanQueue(externalRenderCalls);
+    public void queueUpdate(boolean callIfPossible, InvocCall call) {
+        if (getInUpdateLoop()) {
+            if (callIfPossible) {
+                call.call((float) publicDeltaUpdate);
+            } else {
+                queue(call, localUpdateCalls);
+                return;
+            }
+        }
+        queue(call, externalUpdateCalls);
     }
     
-    private void cleanQueue(Queue<RenderCall> calls) {
-        float delta = (float) publicDeltaRender;
+    private void queue(InvocCall call, Queue<InvocCall> queue) {
+        queue.offer(call);
+    }
+    
+    private void callQueued(Queue<InvocCall> local, Queue<InvocCall> external, float delta) {
+        cleanQueue(local, delta);
+        cleanQueue(external, delta);
+    }
+    
+    private void cleanQueue(Queue<InvocCall> calls, float delta) {
         while (!calls.isEmpty()) {
-            RenderCall call = calls.poll();
+            InvocCall call = calls.poll();
             if (call != null) {
                 call.call(delta);
             }

@@ -5,8 +5,8 @@ import static org.lwjgl.system.MemoryUtil.*;
 import org.joml.Vector2i;
 import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFWVidMode;
-import org.lwjgl.opengl.GL;
 import com.cjburkey.jbnge.GameEngine;
+import com.cjburkey.jbnge.input.Input;
 
 public final class GLFWWindow implements IWindow {
     
@@ -22,21 +22,43 @@ public final class GLFWWindow implements IWindow {
             throw new RuntimeException();
         }
         
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+        
         // Create and verify window
         window = glfwCreateWindow(windowSize.x, windowSize.y, windowTitle, NULL, NULL);
         if (window == NULL) {
             throw new RuntimeException("Failed to create GLFW window");
         }
         
-        // Register event listeners
+        // Register event listeners for input
         glfwSetFramebufferSizeCallback(window, (win, w, h) -> onResize(w, h));
         glfwSetWindowRefreshCallback(window, (win) -> onWindowRefreshRequired.run());
+        glfwSetKeyCallback(window, (win, key, code, action, mods) -> {
+            if (action == GLFW_PRESS) {
+                Input.onKeyPress(key);
+            } else if (action == GLFW_RELEASE) {
+                Input.onKeyRelease(key);
+            }
+        });
+        glfwSetMouseButtonCallback(window, (win, button, action, mods) -> {
+            if (action == GLFW_PRESS) {
+                Input.onMousePress(button);
+            } else if (action == GLFW_RELEASE) {
+                Input.onMousePress(button);
+            }
+        });
+        glfwSetCursorPosCallback(window, (win, x, y) -> Input.onCursorMove((float) x, (float) y));
         
         // Make this the OpenGL-active window
         glfwMakeContextCurrent(window);
         
         // Initialize OpenGL
-        GL.createCapabilities();
+        GameEngine.getGraphics().createCapabilities();
         
         // Initialize background color to black
         setBackgroundColor(new Vector3f(0.0f, 0.0f, 0.0f));

@@ -6,6 +6,10 @@ import org.lwjgl.opengl.GL;
 
 public class GLGraphics implements IGraphics {
     
+    public String getVersion() {
+        return glGetString(GL_VERSION);
+    }
+    
     public void createCapabilities() {
         GL.createCapabilities();
     }

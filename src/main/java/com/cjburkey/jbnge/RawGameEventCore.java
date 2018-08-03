@@ -1,17 +1,25 @@
 package com.cjburkey.jbnge;
 
+import org.lwjgl.Version;
+import com.cjburkey.jbnge.components.MeshRenderer;
 import com.cjburkey.jbnge.entity.Scene;
+import com.cjburkey.jbnge.graphics.Mesh;
 
 public final class RawGameEventCore {
     
     // Called before the game loops are entered
     protected static void onEarlyInitialization() {
         Log.info("Pre-initialized");
+        
+        Log.info("OpenGL: {}", GameEngine.getGraphics().getVersion());
+        Log.info("LWJGL:  {}", Version.getVersion());
     }
     
     // Called just after the update game loop has been entered
     protected static void onUpdateInitialization() {
         Log.info("Started update loop");
+        
+        Scene.getCurrent().createEntity().addComponent(new MeshRenderer());
     }
     
     // Called just after the render loop has been entered
@@ -53,6 +61,7 @@ public final class RawGameEventCore {
     // Called before the game completely exits; used to clean up objects in memory
     protected static void onExit() {
         Log.info("Exiting game loops");
+        Mesh.cleanup();
     }
     
 }

@@ -21,6 +21,7 @@ public abstract class EntityHandler {
     }
     
     public void onEarlyUpdate(float deltaTime) {
+        entityHandler.update();
         for (Entity entity : entityHandler.getIterator()) {
             entity.onEarlyUpdate(deltaTime);
         }

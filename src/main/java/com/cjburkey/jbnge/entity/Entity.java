@@ -15,20 +15,19 @@ public class Entity {
     
     protected void onEarlyUpdate(float deltaTime) {
         componentHandler.update();
+        
         for (EntityComponent component : componentHandler.getIterator()) {
             component.onEarlyUpdate(deltaTime);
         }
     }
     
     protected void onUpdate(float deltaTime) {
-        componentHandler.update();
         for (EntityComponent component : componentHandler.getIterator()) {
             component.onUpdate(deltaTime);
         }
     }
     
     protected void onLateUpdate(float deltaTime) {
-        componentHandler.update();
         for (EntityComponent component : componentHandler.getIterator()) {
             component.onLateUpdate(deltaTime);
         }
