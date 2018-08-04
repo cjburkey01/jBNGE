@@ -6,3 +6,5 @@ bin
 .classpath
 .settings
 .project
+
+*.DS_Store
