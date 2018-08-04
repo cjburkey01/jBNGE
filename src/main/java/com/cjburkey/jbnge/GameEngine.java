@@ -2,6 +2,16 @@ package com.cjburkey.jbnge;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import javax.vecmath.Vector3f;
+import com.bulletphysics.collision.broadphase.AxisSweep3;
+import com.bulletphysics.collision.broadphase.Dispatcher;
+import com.bulletphysics.collision.dispatch.CollisionConfiguration;
+import com.bulletphysics.collision.dispatch.CollisionDispatcher;
+import com.bulletphysics.collision.dispatch.DefaultCollisionConfiguration;
+import com.bulletphysics.dynamics.DiscreteDynamicsWorld;
+import com.bulletphysics.dynamics.DynamicsWorld;
+import com.bulletphysics.dynamics.InternalTickCallback;
+import com.bulletphysics.dynamics.constraintsolver.SequentialImpulseConstraintSolver;
 import com.cjburkey.jbnge.entity.Scene;
 import com.cjburkey.jbnge.graphics.GLFWWindow;
 import com.cjburkey.jbnge.graphics.GLGraphics;
@@ -16,14 +26,15 @@ public final class GameEngine {
     public static final GameEngine instance = new GameEngine();
     
     // State management
-    private boolean hasInitialized = false;
-    private boolean hasUpdateInitialized = false;
-    private boolean hasRenderInitialized = false;
+    private boolean hasInitialized;
+    private boolean hasUpdateInitialized;
+    private boolean hasRenderInitialized;
     private GameState gameState;
     
     // Game loops
     private Thread renderLoop;
     private Thread updateLoop;
+    private boolean updateRunning;
     
     // Call queues
     private final Queue<InvocCall> localRenderCalls = new ConcurrentLinkedQueue<>();       // From the render thread
@@ -33,11 +44,11 @@ public final class GameEngine {
     
     // Timing handling
     private long lastUpdateTime = System.nanoTime();
-    private double deltaUpdateTime = 0.0d;
     private long lastRenderTime = System.nanoTime();
     private double deltaRenderTime = 0.0d;
-    private double publicDeltaUpdate = 0.0d;
     private double publicDeltaRender = 0.0d;
+    private long lastWorldUpdate = System.nanoTime();
+    private float worldDeltaTime;
     
     // Game time handling
     private double gameTime = 0.0d;
@@ -48,6 +59,7 @@ public final class GameEngine {
     // Game features
     private IWindow window;
     private IGraphics graphics;
+    private DiscreteDynamicsWorld world;
     
     private GameEngine() {
         Thread.setDefaultUncaughtExceptionHandler((thread, e) -> Log.exception(e));
@@ -62,11 +74,40 @@ public final class GameEngine {
             return;
         }
         hasInitialized = true;
+        
+
+        Thread.currentThread().setName("GameRaw");
         updateGameState(GameState.PRE_INIT);
         
-        Thread.currentThread().setName("Raw");
         Log.info("Initializing game engine");
-
+        
+        CollisionConfiguration collisionConfiguration = new DefaultCollisionConfiguration();
+        Dispatcher dispatcher = new CollisionDispatcher(collisionConfiguration);
+        Vector3f worldAabbMin = new Vector3f(-1000000000.0f, -1000000000.0f, -1000000000.0f);
+        Vector3f worldAabbMax = new Vector3f(1000000000.0f, 1000000000.0f, 1000000000.0f);
+        AxisSweep3 overlappingPairCache = new AxisSweep3(worldAabbMin, worldAabbMax);
+        SequentialImpulseConstraintSolver solver = new SequentialImpulseConstraintSolver();
+        world = new DiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+        world.setGravity(new Vector3f(0.0f, -9.8f, 0.0f));
+        world.getDispatchInfo().allowedCcdPenetration = 0.0f;
+        world.setInternalTickCallback(new InternalTickCallback() {
+            public void internalTick(DynamicsWorld world, float deltaTime) {
+                lastWorldUpdate = System.nanoTime();
+                gameUpdates ++;
+                worldDeltaTime = deltaTime;
+                gameTime += deltaTime;
+                
+                // Update execution
+                Input.onUpdate();
+                callQueued(localUpdateCalls, externalUpdateCalls, deltaTime);
+                RawGameEventCore.onEarlyUpdate(deltaTime);
+                
+                RawGameEventCore.onUpdate(deltaTime);
+                
+                RawGameEventCore.onLateUpdate(deltaTime);
+            }
+        }, null);
+        
         new Scene();
         openWindow();
         RawGameEventCore.onEarlyInitialization();
@@ -96,6 +137,7 @@ public final class GameEngine {
     
     private void startUpdateLoop() {
         updateLoop = createThread("Update", () -> {
+            updateRunning = true;
             while (gameState.running) {
                 lastUpdateTime = System.nanoTime();
                 
@@ -110,19 +152,12 @@ public final class GameEngine {
                 }
                 
                 // Update the game and objects
-                Input.onUpdate();
-                callQueued(localUpdateCalls, externalUpdateCalls, (float) publicDeltaUpdate);
-                RawGameEventCore.onEarlyUpdate((float) publicDeltaUpdate);
-                RawGameEventCore.onUpdate((float) publicDeltaUpdate);
-                RawGameEventCore.onLateUpdate((float) publicDeltaUpdate);
-                
-                // Increment update counter and game time
-                gameUpdates ++;
-                gameTime += getDeltaTime();
+                world.stepSimulation((float) ((System.nanoTime() - lastWorldUpdate) / nanoSecondsPerSecond));
                 
                 // Keep track of time usage and control game throttling
                 handleUpdateTiming();
             }
+            updateRunning = false;
         }, true);
     }
     
@@ -149,7 +184,7 @@ public final class GameEngine {
             timeSinceTitleUpdate += publicDeltaRender;
             if (timeSinceTitleUpdate >= 1.0d / 60.0d) {
                 timeSinceTitleUpdate = 0.0d;
-                window.setTitle("jBNGE 0.0.1 | FPS: " + Format.format2(1.0d / publicDeltaRender) + " | UPS: " + Format.format2(1.0d / publicDeltaUpdate));
+                window.setTitle("jBNGE 0.0.1 | FPS: " + Format.format2(1.0d / publicDeltaRender) + " | UPS: " + Format.format2(1.0d / getDeltaTime()));
             }
             
             // Prepare the window for rendering
@@ -171,7 +206,23 @@ public final class GameEngine {
             // of timings for later usage and smoothing
             handleRenderTiming();
         }
-        Thread.currentThread().setName("Raw");
+        Thread.currentThread().setName("GameRaw");
+        
+        long i = 0;
+        long se = System.nanoTime();
+        while (updateRunning) {
+            if (i == 0) {
+                Log.info("Waiting for update thread to finish.");
+            }
+            i ++;
+            try {
+                Thread.sleep(1L);
+            } catch (Exception e) {
+                Log.exception(e);
+            }
+        }
+        Log.info("Waited {} cycles ({} ms) for the update thread to finish.", i, (long) Math.round((System.nanoTime() - se) / 1000000.0d));
+        
         RawGameEventCore.onExit();
         callQueued(localRenderCalls, externalRenderCalls, (float) publicDeltaRender);    // Call queued calls again so that anything cleaning up with queue calls is cleaned up
         window.destroy();
@@ -181,24 +232,14 @@ public final class GameEngine {
     
     // Makes sure the game doesn't run too fast
     private void handleUpdateTiming() {
-        // Update timing between updates so movement can be smooth at different update rates
-        updateUpdateTimes();
-        
-        // Prevent more than 100 updates per second
-        while (deltaUpdateTime < 1.0d / 100.0d) {
+        // Prevent more than 200 update attempts per second
+        while ((System.nanoTime() - lastUpdateTime) < 1000000000.0d / 200.0d) {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
                 Log.exception(e);
             }
-            updateUpdateTimes();
         }
-        
-        publicDeltaUpdate = (float) deltaUpdateTime;
-    }
-    
-    private void updateUpdateTimes() {
-        deltaUpdateTime = (System.nanoTime() - lastUpdateTime) / nanoSecondsPerSecond;
     }
     
     // Make sure the game doesn't run too fast
@@ -256,7 +297,7 @@ public final class GameEngine {
     }
     
     public float getDeltaTime() {
-        return (float) publicDeltaUpdate;
+        return worldDeltaTime;
     }
     
     public float getGameTime() {
@@ -290,7 +331,7 @@ public final class GameEngine {
     public void queueUpdate(boolean callIfPossible, InvocCall call) {
         if (getInUpdateLoop()) {
             if (callIfPossible) {
-                call.call((float) publicDeltaUpdate);
+                call.call(getDeltaTime());
             } else {
                 queue(call, localUpdateCalls);
                 return;

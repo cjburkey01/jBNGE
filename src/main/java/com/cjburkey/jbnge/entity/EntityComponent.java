@@ -2,10 +2,10 @@ package com.cjburkey.jbnge.entity;
 
 public abstract class EntityComponent {
     
-    protected final Entity parent = null;
+    public final Entity parent = null;
     
     private boolean allowMultiple;
-    private boolean removable;
+    private boolean removable = true;
     
     protected final void setAllowMultiple(boolean allowMultiple) {
         this.allowMultiple = allowMultiple;

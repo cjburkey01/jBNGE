@@ -1,15 +1,24 @@
 package com.cjburkey.jbnge.entity;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.cjburkey.jbnge.Log;
+import com.cjburkey.jbnge.components.Transform;
 
 public class Entity {
     
     private final UUID uuid;
     private final LinkedComponentHandler componentHandler = new LinkedComponentHandler();
     
+    public final Transform transform;
+    
     protected Entity() {
+        transform = new Transform();
+        addComponent(transform);
+        
         uuid = UUID.randomUUID();
     }
     
@@ -56,9 +65,12 @@ public class Entity {
     }
     
     public <T extends EntityComponent> void addComponent(T component) {
-        if (component.getAllowMultiple() || getComponent(component.getClass()) == null) {
-            componentHandler.add(component);
+        if ((!component.getAllowMultiple() && getComponent(component.getClass()) != null) ||
+                component.parent != null || !updateComponentParent(component) ||
+                !validateRequirements(component)) {
+            return;
         }
+        componentHandler.add(component);
     }
     
     public <T extends EntityComponent> List<T> getComponents(Class<T> type) {
@@ -102,13 +114,51 @@ public class Entity {
     
     private <T extends EntityComponent> void removeComponents(Class<T> type, boolean force, boolean stop) {
         for (EntityComponent component : componentHandler.getIterator()) {
-            if (type.isAssignableFrom(component.getClass()) && (type.cast(component).getRemovable() || force)) {
+            if (type.isAssignableFrom(component.getClass()) && (type.cast(component).getRemovable() ||
+                    force)) {
                 removeComponent(component);
                 if (stop) {
                     return;
                 }
             }
         }
+    }
+    
+    private <T extends EntityComponent> boolean updateComponentParent(T component) {
+        try {
+            Field parentField = component.getClass().getField("parent");
+            parentField.setAccessible(true);
+            parentField.set(component, this);
+            return true;
+        } catch (Exception e) {
+            Log.error("Failed to set parent for component {}", component.getClass().getName());
+            Log.exception(e);
+        }
+        return false;
+    }
+    
+    private <T extends EntityComponent> boolean validateRequirements(T component) {
+        Class<? extends EntityComponent>[] types = getRequired(component.getClass());
+        for (Class<? extends EntityComponent> type : types) {
+            if (getComponent(type) == null && !componentHandler.containsPending(type)) {
+                Log.error("Component {} requires component type of {}", component.getClass().getName(),
+                        type.getName());
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    @SuppressWarnings("unchecked")
+    private <T extends EntityComponent> Class<? extends EntityComponent>[] getRequired(Class<T> component) {
+        Annotation[] annotations = component.getAnnotations();
+        List<Class<? extends EntityComponent>> required = new ArrayList<>();
+        for (Annotation annotation : annotations) {
+            if (annotation.annotationType().equals(RequireComponent.class)) {
+                required.add(RequireComponent.class.cast(annotation).value());
+            }
+        }
+        return required.toArray(new Class[required.size()]);
     }
     
     public int hashCode() {
